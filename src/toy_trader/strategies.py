@@ -25,8 +25,7 @@ class Strategy(ABC):
 
     @abstractmethod
     def generate_signals(self, md: MarketData) -> Signals:
-        raise NotImplementedError
-
+        raise NotImplementedError    
 
 @dataclass(frozen=True)
 class SMACrossParams:
@@ -55,4 +54,27 @@ class SMACrossStrategy(Strategy):
             raise ValueError("ожидается fast < slow")
 
     def generate_signals(self, md: MarketData) -> Signals:
-        raise NotImplementedError
+        bars = md.bars
+        close = bars["Close"]
+
+        fast = close.rolling(
+            window=self.params.fast,
+            min_periods=self.params.fast,
+        ).mean()
+
+        slow = close.rolling(
+            window=self.params.slow,
+            min_periods=self.params.slow,
+        ).mean()
+
+        # базовый сигнал: 1 если fast > slow, иначе 0
+        target = (fast > slow).astype(int)
+
+        # лаг исполнения (на следующий бар)
+        if self.params.shift_for_execution != 0:
+            target = target.shift(self.params.shift_for_execution)
+
+        # на начальных барах и после shift → flat
+        target = target.fillna(0).astype(int)
+
+        return Signals(target_position=target)
