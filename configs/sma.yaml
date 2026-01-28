@@ -1,0 +1,20 @@
+initial_cash: 10000
+
+data:
+  kind: yahoo
+  symbol: SPY
+  start: "2018-01-01"
+  end: null
+  auto_adjust: true
+
+strategy:
+  kind: sma_cross
+  fast: 10
+  slow: 40
+  shift_for_execution: 1
+
+execution:
+  kind: next_bar
+  fee_bps: 1.0
+  slippage_bps: 1.0
+  fill_price: open
