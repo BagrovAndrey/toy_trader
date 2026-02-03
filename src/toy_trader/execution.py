@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 
 import pandas as pd
 
-from .core_types import MarketData, Signals, Fill, PortfolioState
+from .core_types import MarketData, Signals, Fill, PortfolioState, Qty, Price, Cash
 
 
 @dataclass(frozen=True)
@@ -23,6 +23,7 @@ class ExecutionParams:
     fee_bps: float = 1.0
     slippage_bps: float = 1.0
     fill_price: str = "open"
+    eps: float = 1e-12 # Round-off of nearly-zero positions
 
 
 class ExecutionModel(ABC):
@@ -115,13 +116,13 @@ class NextBarExecutionModel(ExecutionModel):
         # 3) Берём начальное состояние и делаем рабочие копии
         # Мы НЕ хотим мутировать initial_state (это плохая привычка для backtest),
         # поэтому забираем значения в локальные переменные.
-        cash = float(initial_state.cash)
-        positions = dict(initial_state.positions)      # копия словаря позиций
+        cash: Cash = initial_state.cash
+        positions: dict[str, Qty] = dict(initial_state.positions)      # копия словаря позиций
         last_prices = dict(initial_state.last_prices)  # копия словаря последних цен
 
         # 4) Функция для расчёта equity (стоимости портфеля)
         # equity = cash + сумма(qty * last_price) по всем инструментам.
-        def compute_equity(cash_: float, pos_: Dict[str, int], lp_: Dict[str, float]) -> float:
+        def compute_equity(cash_: Cash, pos_: Dict[str, Qty], lp_: Dict[str, Price]) -> float:
             eq = cash_
             for sym, qty in pos_.items():
                 price = lp_.get(sym)  # последняя известная цена инструмента
@@ -142,7 +143,7 @@ class NextBarExecutionModel(ExecutionModel):
             last_prices[symbol] = close_price
 
             # 5.2) Текущая позиция в этом инструменте (сколько единиц держим сейчас)
-            cur_qty = int(positions.get(symbol, 0))  # если позиции нет — считаем 0
+            cur_qty: Qty = positions.get(symbol, 0.0)  # если позиции нет — считаем 0
 
             # 5.3) Желаемая позиция из сигналов (0 или 1)
             desired_raw = target.loc[ts]  # значение сигнала на этот момент времени
@@ -150,21 +151,21 @@ class NextBarExecutionModel(ExecutionModel):
             if pd.isna(desired_raw):
                 # на всякий случай: если NaN (не должен быть, но вдруг),
                 # считаем что хотим быть flat
-                desired_qty = 0
+                desired_qty: Qty = 0.0
             else:
-                desired_qty = int(desired_raw)
+                desired_qty: Qty = float(desired_raw)
 
             # В MVP фиксируем контракт: только 0 или 1
-            if desired_qty not in (0, 1):
+            if desired_qty not in (0.0, 1.0):
                 raise ValueError(f"MVP ожидает target_position ∈ {{0,1}}, получено {desired_qty} на {ts}")
 
             # 5.4) Сколько нужно купить/продать, чтобы перейти к желаемой позиции
             # delta > 0  => надо купить delta единиц
             # delta < 0  => надо продать |delta| единиц
-            delta = desired_qty - cur_qty
+            delta: Qty = desired_qty - cur_qty
 
             # 5.5) Если позиция уже как надо — сделки нет
-            if delta != 0:
+            if abs(delta) > self.params.eps:
                 # 5.5.1) Берём базовую цену исполнения с текущего бара
                 raw_price = float(row[fill_col])
 
@@ -194,12 +195,12 @@ class NextBarExecutionModel(ExecutionModel):
                 cash -= fee
 
                 # 5.5.5) Обновляем позицию
-                new_qty = cur_qty + delta
-                if new_qty == 0:
+                new_qty: Qty = cur_qty + delta
+                if abs(new_qty) < self.params.eps:
                     # если стало 0 — можно удалить запись из словаря
                     positions.pop(symbol, None)
                 else:
-                    positions[symbol] = int(new_qty)
+                    positions[symbol] = new_qty
 
                 # 5.5.6) Записываем факт сделки (Fill)
                 fills.append(
@@ -207,7 +208,7 @@ class NextBarExecutionModel(ExecutionModel):
                         symbol=symbol,
                         ts=pd.Timestamp(ts),
                         price=float(exec_price),
-                        qty=int(delta),      # +1 buy, -1 sell (в MVP)
+                        qty=delta,      # +1 buy, -1 sell (в MVP)
                         fee=float(fee),
                     )
                 )

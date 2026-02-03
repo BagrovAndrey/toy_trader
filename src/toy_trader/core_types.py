@@ -4,6 +4,12 @@ from dataclasses import dataclass, field
 from typing import Dict
 import pandas as pd
 
+# ---- numeric aliases (MVP uses float) ----
+Qty: TypeAlias = float
+Price: TypeAlias = float
+Cash: TypeAlias = float
+Fee: TypeAlias = float
+Equity: TypeAlias = float
 
 @dataclass(frozen=True)
 class MarketData:
@@ -48,9 +54,9 @@ class Fill:
     """
     symbol: str
     ts: pd.Timestamp
-    price: float
-    qty: int
-    fee: float
+    price: Price
+    qty: Qty
+    fee: Fee
 
 
 @dataclass
@@ -65,6 +71,6 @@ class PortfolioState:
     - equity: cash + sum(qty_i * price_i)
     """
     cash: float
-    positions: Dict[str, int] = field(default_factory=dict)
-    last_prices: Dict[str, float] = field(default_factory=dict)
-    equity: float = 0.0
+    positions: Dict[str, Qty] = field(default_factory=dict)
+    last_prices: Dict[str, Price] = field(default_factory=dict)
+    equity: Equity = 0.0

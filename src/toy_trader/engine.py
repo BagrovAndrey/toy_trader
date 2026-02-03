@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
-from .core_types import MarketData, Signals, Fill, PortfolioState
+from .core_types import MarketData, Signals, Fill, PortfolioState, Cash
 from .data_sources import DataSource
 from .strategies import Strategy
 from .execution import ExecutionModel
@@ -40,12 +40,12 @@ class BacktestEngine:
         data_source: DataSource,
         strategy: Strategy,
         execution_model: ExecutionModel,
-        initial_cash: float = 10_000.0,
+        initial_cash: Cash = 10_000.0,
     ):
         self.data_source = data_source
         self.strategy = strategy
         self.execution_model = execution_model
-        self.initial_cash = float(initial_cash)
+        self.initial_cash: Cash = initial_cash
 
     def run(self) -> BacktestResult:
         md = self.data_source.get_bars()

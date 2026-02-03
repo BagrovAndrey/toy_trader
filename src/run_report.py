@@ -37,6 +37,14 @@ def main() -> None:
     # --- 3) Прогон backtest
     res = engine.run()
 
+    assert len(res.states) == len(res.market_data.bars)
+    assert all(isinstance(f.qty, float) for f in res.fills)
+    assert all(
+        isinstance(q, float)
+        for s in res.states
+        for q in s.positions.values()
+    )
+
     print(f"symbol={symbol}, start={start}")
     print(f"bars={len(res.market_data.bars)}, fills={len(res.fills)}, states={len(res.states)}")
 
