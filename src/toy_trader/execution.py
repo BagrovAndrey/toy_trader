@@ -182,37 +182,63 @@ class NextBarExecutionModel(ExecutionModel):
                 else:
                     exec_price = raw_price * (1.0 - slip)
 
+                # --- A1.1: limit buy size by available cash (spot trading constraint)
+                # We size positions using target_fraction * equity, but execution price
+                # includes slippage and we also pay a fee.
+                # Without this clamp, an "all-in" signal could overspend cash by fees.
+
+                fee_rate = self.params.fee_bps / 10_000.0
+
+                if delta > 0:
+                    denom = exec_price * (1.0 + fee_rate)
+                    max_buy_qty = cash / denom if denom > 0 else 0.0
+                    if max_buy_qty < 0:
+                        max_buy_qty = 0.0
+                if delta > max_buy_qty:
+                    delta = max_buy_qty
+                    
+                # A1.1-2: guard AFTER clamping
+                if abs(delta) <= self.params.eps:
+                    delta = 0.0
+
                 # 5.5.3) Комиссия (fee) тоже в bps от оборота (notional)
                 # notional = |qty| * price
-                notional = abs(delta) * exec_price
-                fee = notional * (self.params.fee_bps / 10_000.0)
+                
+                # применять сделку ТОЛЬКО если delta всё ещё значима
+                if abs(delta) > self.params.eps:
+                
+                    notional = abs(delta) * exec_price
+                    fee = notional * (self.params.fee_bps / 10_000.0)
 
-                # 5.5.4) Обновляем cash
-                # Если delta>0 (покупка): cash уменьшается на delta*price
-                # Если delta<0 (продажа): cash увеличивается, потому что "-delta*price" вычитает отрицательное
-                cash -= delta * exec_price
+                    # 5.5.4) Обновляем cash
+                    # Если delta>0 (покупка): cash уменьшается на delta*price
+                    # Если delta<0 (продажа): cash увеличивается, потому что "-delta*price" вычитает отрицательное
+                    cash -= delta * exec_price
 
-                # Комиссия всегда уменьшает cash
-                cash -= fee
+                    # Комиссия всегда уменьшает cash
+                    cash -= fee
+                    
+                    if abs(cash) < self.params.eps:
+                        cash = 0.0
 
-                # 5.5.5) Обновляем позицию
-                new_qty: Qty = cur_qty + delta
-                if abs(new_qty) < self.params.eps:
-                    # если стало 0 — можно удалить запись из словаря
-                    positions.pop(symbol, None)
-                else:
-                    positions[symbol] = new_qty
+                    # 5.5.5) Обновляем позицию
+                    new_qty: Qty = cur_qty + delta
+                    if abs(new_qty) < self.params.eps:
+                        # если стало 0 — можно удалить запись из словаря
+                        positions.pop(symbol, None)
+                    else:
+                        positions[symbol] = new_qty
 
-                # 5.5.6) Записываем факт сделки (Fill)
-                fills.append(
-                    Fill(
-                        symbol=symbol,
-                        ts=pd.Timestamp(ts),
-                        price=float(exec_price),
-                        qty=delta,      # +1 buy, -1 sell (в MVP)
-                        fee=float(fee),
+                    # 5.5.6) Записываем факт сделки (Fill)
+                    fills.append(
+                        Fill(
+                            symbol=symbol,
+                            ts=pd.Timestamp(ts),
+                            price=float(exec_price),
+                            qty=delta,      # +1 buy, -1 sell (в MVP)
+                            fee=float(fee),
+                        )
                     )
-                )
 
             # 5.6) В конце бара делаем "снимок" состояния портфеля
             equity = compute_equity(cash, positions, last_prices)

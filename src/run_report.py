@@ -37,6 +37,10 @@ def main() -> None:
     # --- 3) Прогон backtest
     res = engine.run()
     
+    # A1.1 sanity: cash should not go meaningfully negative (spot, no margin)
+    min_cash = min(s.cash for s in res.states)
+    assert min_cash >= -1e-6, f"cash went negative: min_cash={min_cash}"
+    
     symbol = res.market_data.symbol
     last_pos = res.states[-1].positions.get(symbol, 0.0)
     print("DEBUG last position qty:", last_pos)
