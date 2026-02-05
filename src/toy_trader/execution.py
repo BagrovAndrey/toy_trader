@@ -145,20 +145,21 @@ class NextBarExecutionModel(ExecutionModel):
             # 5.2) Текущая позиция в этом инструменте (сколько единиц держим сейчас)
             cur_qty: Qty = positions.get(symbol, 0.0)  # если позиции нет — считаем 0
 
-            # 5.3) Желаемая позиция из сигналов (0 или 1)
-            desired_raw = target.loc[ts]  # значение сигнала на этот момент времени
+            # 5.3) Желаемая доля капитала (fraction) из сигналов: [0,1]
+            desired_raw = target.loc[ts]
 
             if pd.isna(desired_raw):
-                # на всякий случай: если NaN (не должен быть, но вдруг),
-                # считаем что хотим быть flat
-                desired_qty: Qty = 0.0
+                target_fraction: float = 0.0
             else:
-                desired_qty: Qty = float(desired_raw)
+                target_fraction = float(desired_raw)
 
-            # В MVP фиксируем контракт: только 0 или 1
-            if desired_qty not in (0.0, 1.0):
-                raise ValueError(f"MVP ожидает target_position ∈ {{0,1}}, получено {desired_qty} на {ts}")
+            if not (0.0 <= target_fraction <= 1.0):
+                raise ValueError(f"target_fraction ∈ [0,1], получено {target_fraction} на {ts}")
 
+            # sizing по CLOSE
+            equity_for_sizing = compute_equity(cash, positions, last_prices)
+            desired_qty: Qty = (target_fraction * equity_for_sizing) / close_price
+            
             # 5.4) Сколько нужно купить/продать, чтобы перейти к желаемой позиции
             # delta > 0  => надо купить delta единиц
             # delta < 0  => надо продать |delta| единиц

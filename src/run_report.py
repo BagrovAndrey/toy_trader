@@ -36,6 +36,10 @@ def main() -> None:
 
     # --- 3) Прогон backtest
     res = engine.run()
+    
+    symbol = res.market_data.symbol
+    last_pos = res.states[-1].positions.get(symbol, 0.0)
+    print("DEBUG last position qty:", last_pos)
 
     assert len(res.states) == len(res.market_data.bars)
     assert all(isinstance(f.qty, float) for f in res.fills)
@@ -72,7 +76,9 @@ def main() -> None:
     price = res.market_data.bars["Close"]
 
     pnl_strategy = eq - eq.iloc[0]          # $ PnL стратегии относительно initial_cash
-    pnl_buyhold_1 = price - price.iloc[0]   # $ PnL buy&hold 1 share
+    qty_bh = initial_cash / price.iloc[0]    # Buy&Hold
+    equity_bh = qty_bh * price
+    pnl_buyhold = equity_bh - initial_cash   
 
     # Позиция во времени (0/1) — полезно увидеть “когда мы в рынке”
     position = res.signals.target_position
@@ -89,7 +95,7 @@ def main() -> None:
 
     plt.figure(figsize=(11, 5))
     plt.plot(pnl_strategy, label="Strategy PnL ($)")
-    plt.plot(pnl_buyhold_1, label="Buy&Hold 1 share PnL ($)")
+    plt.plot(pnl_buyhold, label="Buy&Hold all-in PnL ($)")
     plt.axhline(0.0)
     plt.legend()
     plt.title(f"{symbol}: PnL comparison (correct for 1-unit sizing)")
