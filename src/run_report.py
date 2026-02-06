@@ -30,7 +30,7 @@ def main() -> None:
         print(s, mmd.data[s].bars.shape)
 
     # --- 1) Настройки эксперимента (можешь менять руками)
-    symbol = "SPY"
+    symbol = "PLTR"
     start = "2020-01-01"
     initial_cash = 10_000.0
 
