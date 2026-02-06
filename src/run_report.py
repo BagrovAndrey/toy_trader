@@ -6,6 +6,7 @@ from toy_trader.data_sources import YahooDataSource
 from toy_trader.strategies import SMACrossStrategy
 from toy_trader.execution import NextBarExecutionModel
 from toy_trader.engine import BacktestEngine
+from toy_trader.multi_data_sources import MultiYahooDataSource
 
 # Если ты уже сделал reporting.py — используем его.
 # Если нет, можно убрать эти импорты и оставить только PnL-графики.
@@ -17,6 +18,17 @@ except Exception:
     drawdown_curve = None
 
 def main() -> None:
+
+    # --- 0) Временно: тестирование много-ассетного лоадера
+
+    ds = MultiYahooDataSource(symbols=["AMZN", "PLTR", "XOM"], start="2020-01-01")
+    mmd = ds.get_bars()
+
+    print(mmd.symbols)
+    print(len(mmd.index), mmd.index[0], mmd.index[-1])
+    for s in mmd.symbols:
+        print(s, mmd.data[s].bars.shape)
+
     # --- 1) Настройки эксперимента (можешь менять руками)
     symbol = "SPY"
     start = "2020-01-01"
