@@ -29,10 +29,18 @@ def max_drawdown(equity: pd.Series) -> float:
     """
     Максимальная просадка (в долях, например -0.23 = -23%).
     """
+    dd = drawdown_curve(equity)
+    return float(dd.min())
+    
+def drawdown_curve(equity: pd.Series) -> pd.Series:
+    """
+    Drawdown curve (в долях, <= 0), по определению:
+    dd(t) = equity(t) / max_{u<=t} equity(u) - 1
+    """
     peak = equity.cummax()
     dd = equity / peak - 1.0
-    return float(dd.min())
-
+    dd.name = "drawdown"
+    return dd
 
 def basic_metrics(res: BacktestResult, bars_per_year: int = 252) -> BasicMetrics:
     """
@@ -49,9 +57,8 @@ def basic_metrics(res: BacktestResult, bars_per_year: int = 252) -> BasicMetrics
     total_return = float(eq.iloc[-1] / eq.iloc[0] - 1.0)
 
     # лог-доходности для стабильности
-    rets = (eq / eq.shift(1)).apply(lambda x: pd.NA if pd.isna(x) else x)
-    rets = pd.to_numeric(rets, errors="coerce")
-    rets = rets.dropna() - 1.0
+    # bar-to-bar returns (простые доходности)
+    rets = eq.pct_change().dropna()
 
     # CAGR по приближению через количество баров
     years = len(eq) / float(bars_per_year)

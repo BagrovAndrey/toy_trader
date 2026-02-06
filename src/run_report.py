@@ -10,11 +10,11 @@ from toy_trader.engine import BacktestEngine
 # Если ты уже сделал reporting.py — используем его.
 # Если нет, можно убрать эти импорты и оставить только PnL-графики.
 try:
-    from toy_trader.reporting import equity_curve, basic_metrics
+    from toy_trader.reporting import equity_curve, basic_metrics, drawdown_curve
 except Exception:
     equity_curve = None
     basic_metrics = None
-
+    drawdown_curve = None
 
 def main() -> None:
     # --- 1) Настройки эксперимента (можешь менять руками)
@@ -62,6 +62,11 @@ def main() -> None:
     else:
         idx = res.market_data.bars.index
         eq = pd.Series([s.equity for s in res.states], index=idx, name="equity")
+        
+    if drawdown_curve is not None:
+        dd = drawdown_curve(eq)
+    else:
+        dd = None
 
     # --- 5) Метрики (если есть reporting.basic_metrics)
     if basic_metrics is not None:
@@ -104,6 +109,20 @@ def main() -> None:
     plt.legend()
     plt.title(f"{symbol}: PnL comparison (correct for 1-unit sizing)")
     plt.show()
+    
+    plt.figure(figsize=(11, 4))
+    plt.plot(eq, label="Equity ($)")
+    plt.legend()
+    plt.title(f"{symbol}: Equity curve")
+    plt.show()
+
+    if dd is not None:
+        plt.figure(figsize=(11, 3))
+        plt.plot(dd, label="Drawdown")
+        plt.axhline(0.0)
+        plt.legend()
+        plt.title(f"{symbol}: Drawdown")
+        plt.show()
 
 
 if __name__ == "__main__":
