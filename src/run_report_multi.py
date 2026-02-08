@@ -11,7 +11,7 @@ from toy_trader.multi_data_sources import MultiYahooDataSource
 from toy_trader.multi_engine import MultiBacktestEngine
 from toy_trader.multi_execution import MultiNextBarExecutionModel
 from toy_trader.execution import ExecutionParams
-from toy_trader.strategies import SMACrossStrategy, SMACrossParams  # params/class names may differ in your repo
+from toy_trader.strategies import SMACrossStrategy, SMACrossParams, RSIMeanReversionStrategy, RSIReversionParams  # params/class names may differ in your repo
 from toy_trader.reporting import metrics_from_equity, drawdown_curve
 from toy_trader.allocation import ProportionalAllocator
 
@@ -24,7 +24,8 @@ def main() -> None:
 
     # Strategy params: adjust to your actual param class if needed
     # If your strategy takes a params dataclass, edit these two lines accordingly.
-    strategy = SMACrossStrategy(SMACrossParams(fast=10, slow=40, shift_for_execution=1))  # <-- if your SMACrossStrategy needs params, change this
+    #strategy = SMACrossStrategy(SMACrossParams(fast=10, slow=40, shift_for_execution=1))  # <-- if your SMACrossStrategy needs params, change this
+    strategy = RSIMeanReversionStrategy(RSIReversionParams(rsi_period=2, entry=10, exit=50, shift_for_execution=1))
 
     ds = MultiYahooDataSource(symbols=symbols, start=start, end=end)
     ex = MultiNextBarExecutionModel(ExecutionParams(fill_price="open", fee_bps=1.0, slippage_bps=1.0))
