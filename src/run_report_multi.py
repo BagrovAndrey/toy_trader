@@ -13,6 +13,7 @@ from toy_trader.multi_execution import MultiNextBarExecutionModel
 from toy_trader.execution import ExecutionParams
 from toy_trader.strategies import SMACrossStrategy, SMACrossParams  # params/class names may differ in your repo
 from toy_trader.reporting import metrics_from_equity, drawdown_curve
+from toy_trader.allocation import ProportionalAllocator
 
 def main() -> None:
     # Minimal CLI (no configs yet)
@@ -27,7 +28,8 @@ def main() -> None:
 
     ds = MultiYahooDataSource(symbols=symbols, start=start, end=end)
     ex = MultiNextBarExecutionModel(ExecutionParams(fill_price="open", fee_bps=1.0, slippage_bps=1.0))
-    engine = MultiBacktestEngine(ds, strategy, ex, initial_cash=initial_cash)
+    allocator = ProportionalAllocator(cap=0.5)  # максимум 50% на актив
+    engine = MultiBacktestEngine(ds, strategy, ex, allocator=allocator, initial_cash=initial_cash)
 
     res = engine.run()
 
